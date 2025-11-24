@@ -1,194 +1,185 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Rotating Pentagon</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit 2 Programming Assignment: Rotating Pentagon</title>
     <!-- Load Tailwind CSS for simple, clean styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Three.js library for 3D graphics -->
+    <!-- 
+        *** CRITICAL FIX: Ensure the correct and secure HTTPS link for Three.js is used. 
+        This is necessary for the code to run correctly on GitHub Pages. 
+    -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-      /* Ensure the canvas fills the container and sits in the center */
-      #container {
-        width: 100%;
-        max-width: 800px;
-        height: 500px;
-        margin: 0 auto;
-        border-radius: 1rem;
-        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-        background-color: #e5e7eb; /* Light gray background for contrast */
-      }
+        /* Ensure the canvas fills the container and sits in the center */
+        #container {
+            width: 100%;
+            /* Set a maximum width and a fixed aspect ratio height for stability */
+            max-width: 800px;
+            height: 500px; 
+            margin: 0 auto;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            background-color: #e5e7eb; /* Light gray background for contrast */
+        }
     </style>
-  </head>
-  <body class="bg-gray-100 min-h-screen p-4 flex flex-col items-center">
+</head>
+<body class="bg-gray-100 min-h-screen p-4 flex flex-col items-center">
+
     <header class="text-center mb-6">
-      <h1 class="text-3xl font-bold text-gray-800">
-        Unit 2: WebGL Polygon Assignment
-      </h1>
-      <p class="text-gray-600">
-        A 5-vertex polygon (pentagon) rendered in Three.js, rotating slowly on
-        its axes, with a red surface.
-      </p>
+        <h1 class="text-3xl font-bold text-gray-800">Unit 2: WebGL Polygon Assignment</h1>
+        <p class="text-gray-600">A 5-vertex polygon (pentagon) rendered in Three.js, rotating slowly on its axes, with a red surface.</p>
     </header>
 
     <!-- This div will contain the Three.js rendering canvas -->
     <div id="container" class="w-full"></div>
 
     <script>
-      // --- Global Scene Variables ---
-      let scene, camera, renderer, pentagon;
+        // --- Global Scene Variables ---
+        let scene, camera, renderer, pentagon;
 
-      /**
-       * Initializes the Three.js scene, camera, and renderer.
-       * This function sets up the basic environment for 3D rendering.
-       */
-      function init() {
-        // 1. Scene Setup: The container for all objects, lights, and cameras.
-        scene = new THREE.Scene();
-        // Set the background color to a very light blue for visibility
-        scene.background = new THREE.Color(0xf0f4f8);
+        /**
+         * Initializes the Three.js environment: scene, camera, and renderer.
+         * Sets up the basic 3D environment for rendering.
+         */
+        function init() {
+            // 1. Scene Setup: The container for all objects, lights, and cameras.
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf0f4f8); 
 
-        // 2. Camera Setup: Defines the viewing perspective.
-        // PerspectiveCamera( fov, aspect, near, far )
-        // fov: Field of View (45 degrees is standard)
-        // aspect: Width / Height of the container
-        // near/far: Clipping planes (objects outside this range are not rendered)
-        const container = document.getElementById("container");
-        const aspectRatio = container.clientWidth / container.clientHeight;
-        camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
-        camera.position.z = 5; // Move the camera back so we can see the object
+            // 2. Camera Setup: Defines the viewing perspective.
+            const container = document.getElementById('container');
+            // Check if the container exists before getting clientWidth/Height
+            if (!container) {
+                console.error("Container element #container not found.");
+                return;
+            }
+            const aspectRatio = container.clientWidth / container.clientHeight;
+            // PerspectiveCamera( fov, aspect, near, far )
+            camera = new THREE.PerspectiveCamera(75, aspectRatio, 0.1, 1000);
+            camera.position.z = 5; // Move camera back to see the 2-unit radius pentagon
 
-        // 3. Renderer Setup: Responsible for drawing the scene onto the canvas.
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        container.appendChild(renderer.domElement);
+            // 3. Renderer Setup: Responsible for drawing the scene onto the canvas.
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
 
-        // 4. Create the Polygon (Pentagon)
-        createPentagon();
+            // 4. Create and Add Lighting
+            // Ambient light: Provides soft, non-directional light to brighten all sides
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7); 
+            scene.add(ambientLight);
+            
+            // Directional light: Creates shadows and highlights for depth perception
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight.position.set(2, 2, 5); // Position light source
+            scene.add(directionalLight);
 
-        // 5. Add subtle ambient light to make the surface visible
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambientLight);
+            // 5. Create the 5-sided Polygon (Pentagon)
+            createPentagon();
 
-        // 6. Add directional light for better shading and depth perception
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        directionalLight.position.set(2, 2, 5);
-        scene.add(directionalLight);
-
-        // Start the animation loop
-        animate();
-      }
-
-      /**
-       * Creates a 5-sided polygon (pentagon) geometry using custom vertices and indices.
-       * This manually defines a mesh with exactly 5 vertices as required.
-       */
-      function createPentagon() {
-        // Define a buffer geometry object. This is a highly efficient way to store
-        // the geometry data for the GPU.
-        const geometry = new THREE.BufferGeometry();
-
-        // --- Define 5 Vertices for a Regular Pentagon ---
-        // The vertices are calculated using trigonometry to form a flat, regular pentagon
-        // centered at the origin (0, 0, 0) with a radius of 2 units.
-        const radius = 2;
-        const vertices = [];
-        const sides = 5;
-
-        // Loop 5 times (0 to 4) to define the X and Y coordinates of the 5 vertices
-        for (let i = 0; i < sides; i++) {
-          // Calculate the angle for the current vertex
-          const angle = ((Math.PI * 2) / sides) * i;
-          // X = radius * cosine(angle)
-          const x = radius * Math.cos(angle);
-          // Y = radius * sine(angle)
-          const y = radius * Math.sin(angle);
-          // Z = 0 (since it's a flat 2D polygon)
-          const z = 0;
-
-          // Push the coordinates in the order X, Y, Z
-          vertices.push(x, y, z);
+            // Start the animation loop
+            animate();
         }
 
-        // Set the vertex positions for the geometry
-        geometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(vertices, 3)
-        );
+        /**
+         * Creates a 5-sided polygon geometry using custom vertices and indices.
+         * This meets the requirement for a polygon composed of exactly 5 vertices.
+         */
+        function createPentagon() {
+            // BufferGeometry is used to efficiently store custom geometry data
+            const geometry = new THREE.BufferGeometry();
 
-        // --- Triangulation using Indices (Element Buffer) ---
-        // A pentagon (5 vertices) needs 3 triangles to form a solid face.
-        // We pin the first vertex (index 0) and fan out the triangles from there.
-        const indices = [
-          0,
-          1,
-          2, // Triangle 1 (v0, v1, v2)
-          0,
-          2,
-          3, // Triangle 2 (v0, v2, v3)
-          0,
-          3,
-          4, // Triangle 3 (v0, v3, v4)
-        ];
-        geometry.setIndex(indices);
+            // --- Define 5 Vertices (x, y, z) for a Regular Pentagon ---
+            const radius = 2; // Size of the pentagon
+            const vertices = [];
+            const sides = 5; // The required number of vertices
 
-        // Recalculate normals for proper lighting and shading
-        geometry.computeVertexNormals();
+            // Calculate the 5 vertices' positions in a circle
+            for (let i = 0; i < sides; i++) {
+                // Angle calculation: Math.PI * 2 is a full circle (360 degrees)
+                const angle = (Math.PI * 2 / sides) * i; 
+                // 
+                const x = radius * Math.cos(angle);
+                const y = radius * Math.sin(angle);
+                const z = 0; // Flat polygon, so Z is zero
+                
+                vertices.push(x, y, z);
+            }
 
-        // --- Define the Red or Blue Material (Requirement: Red Surface) ---
-        const material = new THREE.MeshPhongMaterial({
-          color: 0xff0000, // Red surface color (0xff0000)
-          side: THREE.DoubleSide, // Render both sides of the polygon
-          flatShading: true, // Gives a faceted, geometric look
-        });
+            // Set the vertex positions (3 values per vertex: x, y, z)
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
-        // Combine the geometry and material into a Mesh object
-        pentagon = new THREE.Mesh(geometry, material);
-        scene.add(pentagon);
-      }
+            // --- Triangulation using Indices ---
+            // A 5-sided polygon requires 3 triangles to be filled (N-2 triangles)
+            // We use vertex 0 as the pivot and fan out the triangles.
+            const indices = [
+                0, 1, 2, // Triangle 1: connecting v0, v1, v2
+                0, 2, 3, // Triangle 2: connecting v0, v2, v3
+                0, 3, 4  // Triangle 3: connecting v0, v3, v4
+            ];
+            geometry.setIndex(indices);
+            
+            // Recalculate normals so the lighting/shading looks correct
+            geometry.computeVertexNormals(); 
 
-      /**
-       * The main animation loop.
-       * This function is called repeatedly (~60 times per second) to update the scene
-       * and redraw the content, creating the illusion of movement.
-       */
-      function animate() {
-        // Requests the browser to call 'animate' again before the next repaint.
-        requestAnimationFrame(animate);
+            // --- Define the Red Material (Requirement: Red or Blue Surface) ---
+            const material = new THREE.MeshPhongMaterial({ 
+                color: 0xff0000, // Red color (0xff0000)
+                side: THREE.DoubleSide, // Ensure the polygon is visible from both front and back
+                shininess: 50 // Adds a slight reflective shine
+            });
 
-        // --- Rotation Logic (Requirement: Spin slowly on axes) ---
-        // Slowly rotate the polygon around the X-axis and Y-axis
-        pentagon.rotation.x += 0.005;
-        pentagon.rotation.y += 0.007;
+            // Combine the geometry and material into the final mesh object
+            pentagon = new THREE.Mesh(geometry, material);
+            scene.add(pentagon);
+        }
 
-        // Render the scene from the camera's perspective
-        renderer.render(scene, camera);
-      }
+        /**
+         * The main animation loop.
+         * Updates the polygon's rotation and redraws the scene constantly.
+         */
+        function animate() {
+            // Loops the animation
+            requestAnimationFrame(animate);
 
-      /**
-       * Handles window resizing to keep the scene responsive.
-       */
-      function onWindowResize() {
-        const container = document.getElementById("container");
-        const newWidth = container.clientWidth;
-        const newHeight = container.clientHeight;
+            // --- Rotation Logic (Requirement: Spin slowly on its axes) ---
+            // Rotate the polygon around the X-axis (tilt up/down)
+            pentagon.rotation.x += 0.005; 
+            // Rotate the polygon around the Y-axis (spin left/right)
+            pentagon.rotation.y += 0.007; 
 
-        // Update camera aspect ratio and projection matrix
-        camera.aspect = newWidth / newHeight;
-        camera.updateProjectionMatrix();
+            // Render the updated scene
+            renderer.render(scene, camera);
+        }
 
-        // Update renderer size
-        renderer.setSize(newWidth, newHeight);
-      }
+        /**
+         * Handles window resizing to keep the scene responsive.
+         */
+        function onWindowResize() {
+            const container = document.getElementById('container');
+            // Check for null to prevent errors if the container hasn't loaded yet
+            if (!container) return; 
 
-      // Attach the resize handler to the window event
-      window.addEventListener("resize", onWindowResize);
+            const newWidth = container.clientWidth;
+            const newHeight = container.clientHeight;
 
-      // --- Start the application on window load ---
-      window.onload = init;
+            // Update camera aspect ratio
+            camera.aspect = newWidth / newHeight;
+            camera.updateProjectionMatrix();
+
+            // Update renderer size
+            renderer.setSize(newWidth, newHeight);
+        }
+
+        // Attach the resize handler to the window event
+        window.addEventListener('resize', onWindowResize);
+
+        // --- Start the application on window load ---
+        window.onload = init;
+
     </script>
-  </body>
+</body>
 </html>
